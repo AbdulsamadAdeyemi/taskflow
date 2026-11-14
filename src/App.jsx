@@ -17,7 +17,22 @@ function App() {
 
   const [tasks, setTasks] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('tasks')) || []
+      const savedTasks = JSON.parse(localStorage.getItem('tasks') || '[]')
+
+      if (!Array.isArray(savedTasks)) return []
+
+      // Ignore malformed entries so one bad record cannot break the task list.
+      return savedTasks
+        .filter(item =>
+          item &&
+          (typeof item.id === 'string' || typeof item.id === 'number') &&
+          typeof item.title === 'string'
+        )
+        .map(item => ({
+          id: item.id,
+          title: item.title,
+          completed: Boolean(item.completed),
+        }))
     } catch {
       return []
     }
@@ -30,7 +45,12 @@ function App() {
 
   
   useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks))
+    try {
+      localStorage.setItem('tasks', JSON.stringify(tasks))
+    } catch (error) {
+      // Storage can be unavailable or full; the app remains usable in memory.
+      console.error('Unable to save tasks to local storage:', error)
+    }
   }, [tasks])
 
   function handleSubmit(e) {
@@ -116,23 +136,48 @@ function App() {
           YOUR PRODUCTIVITY SPACE
         </p>
 
-        <nav className="mt-8 space-y-2">
-
-          <div className="flex items-center gap-3 bg-purple-50 text-purple-700 font-semibold p-3 rounded-lg">
+        <nav aria-label="Task views" className="mt-8 space-y-2">
+          <button
+            type="button"
+            onClick={() => setFilter('All')}
+            aria-current={filter === 'All' ? 'page' : undefined}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg text-left font-semibold transition ${
+              filter === 'All'
+                ? 'bg-purple-50 text-purple-700'
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
             <LayoutDashboard size={20} />
-            Dashboard
-          </div>
+            All Tasks
+          </button>
 
-          <div className="flex items-center gap-3 text-slate-500 p-3">
+          <button
+            type="button"
+            onClick={() => setFilter('Pending')}
+            aria-current={filter === 'Pending' ? 'page' : undefined}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg text-left font-semibold transition ${
+              filter === 'Pending'
+                ? 'bg-purple-50 text-purple-700'
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
             <ListTodo size={20} />
-            My Tasks
-          </div>
+            Pending
+          </button>
 
-          <div className="flex items-center gap-3 text-slate-500 p-3">
+          <button
+            type="button"
+            onClick={() => setFilter('Completed')}
+            aria-current={filter === 'Completed' ? 'page' : undefined}
+            className={`w-full flex items-center gap-3 p-3 rounded-lg text-left font-semibold transition ${
+              filter === 'Completed'
+                ? 'bg-purple-50 text-purple-700'
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
             <CheckCircle2 size={20} />
             Completed
-          </div>
-
+          </button>
         </nav>
 
         <div className="hidden md:block mt-16 bg-purple-50 p-4 rounded-xl">
@@ -200,6 +245,9 @@ function App() {
 
             <input
               type="text"
+              aria-label="Task title"
+              maxLength={120}
+              required
               value={task}
               onChange={e => setTask(e.target.value)}
               placeholder="What do you need to do?"
@@ -251,6 +299,7 @@ function App() {
 
               <input
                 type="text"
+                aria-label="Search tasks"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search tasks..."
@@ -258,7 +307,7 @@ function App() {
               />
 
               {search && (
-                <button onClick={() => setSearch('')}>
+                <button type="button" aria-label="Clear search" onClick={() => setSearch('')}>
                   <X size={16} />
                 </button>
               )}
